@@ -1,0 +1,57 @@
+﻿Item ID,Stage,Domain / Trait,Format,Est. b,Est. a,Pathway Signal
+A1,Aptitude,STEM,MCQ,−1.5,1,STEM
+A2,Aptitude,STEM,MCQ,−1.2,1.1,STEM
+A3,Aptitude,STEM,MCQ,−0.8,1.2,STEM
+A4,Aptitude,STEM,MCQ,−0.5,1.3,STEM
+A5,Aptitude,STEM,MCQ,−0.2,1.4,STEM
+A6,Aptitude,STEM,MCQ,0,1.5,STEM
+A7,Aptitude,STEM,MCQ,0.3,1.5,STEM
+A8,Aptitude,STEM,MCQ,0.6,1.6,STEM
+A9,Aptitude,STEM,MCQ,0.9,1.7,STEM
+A10,Aptitude,STEM,MCQ,1.2,1.8,STEM
+A11,Aptitude,STEM,MCQ,1.5,1.8,STEM
+A12,Aptitude,STEM,MCQ,1.8,1.9,STEM
+B1,Aptitude,Social Sciences,MCQ,−1.5,1,Social Sciences
+B2,Aptitude,Social Sciences,MCQ,−1.0,1.1,Social Sciences
+B3,Aptitude,Social Sciences,MCQ,−0.5,1.3,Social Sciences
+B4,Aptitude,Social Sciences,MCQ,−0.2,1.4,Social Sciences
+B5,Aptitude,Social Sciences,MCQ,0,1.5,Social Sciences
+B6,Aptitude,Social Sciences,MCQ,0.3,1.5,Social Sciences
+B7,Aptitude,Social Sciences,MCQ,0.7,1.6,Social Sciences
+B8,Aptitude,Social Sciences,MCQ,1,1.7,Social Sciences
+B9,Aptitude,Social Sciences,MCQ,1.3,1.8,Social Sciences
+B10,Aptitude,Social Sciences,MCQ,1.7,1.9,Social Sciences
+C1,Aptitude,Arts & Sports,MCQ,−1.5,1,Arts & Sports
+C2,Aptitude,Arts & Sports,MCQ,−1.0,1.1,Arts & Sports
+C3,Aptitude,Arts & Sports,MCQ,−0.5,1.3,Arts & Sports
+C4,Aptitude,Arts & Sports,MCQ,0,1.5,Arts & Sports
+C5,Aptitude,Arts & Sports,MCQ,0.3,1.5,Arts & Sports
+C6,Aptitude,Arts & Sports,MCQ,0.8,1.6,Arts & Sports
+C7,Aptitude,Arts & Sports,MCQ,1.2,1.7,Arts & Sports
+C8,Aptitude,Arts & Sports,MCQ,1.6,1.8,Arts & Sports
+O1,Personality,Openness,Likert 1–5,−1.0,1.2,Arts & Sports
+O2,Personality,Openness,Likert 1–5,−0.5,1.3,Arts & Sports
+O3,Personality,Openness,Likert 1–5,0,1.5,Arts & Sports
+O4,Personality,Openness (R),Likert 1–5,0.2,1.4,Arts & Sports
+O5,Personality,Openness,Likert 1–5,0.5,1.6,Arts & Sports
+O6,Personality,Openness,Likert 1–5,0.8,1.5,Arts & Sports
+C_1,Personality,Conscientiousness,Likert 1–5,−1.0,1.2,STEM
+C_2,Personality,Conscientiousness,Likert 1–5,−0.5,1.3,STEM
+C_3,Personality,Conscientiousness,Likert 1–5,0,1.5,STEM
+C_4,Personality,Conscientiousness (R),Likert 1–5,0.3,1.4,STEM
+C_5,Personality,Conscientiousness,Likert 1–5,0.5,1.6,STEM
+C_6,Personality,Conscientiousness,Likert 1–5,0.9,1.5,STEM
+E1,Personality,Extraversion,Likert 1–5,−1.0,1.2,Social Sciences
+E2,Personality,Extraversion,Likert 1–5,−0.5,1.3,Social Sciences
+E3,Personality,Extraversion,Likert 1–5,0,1.5,Social Sciences
+E4,Personality,Extraversion (R),Likert 1–5,0.2,1.4,Social Sciences
+E5,Personality,Extraversion,Likert 1–5,0.5,1.6,Social Sciences
+E6,Personality,Extraversion,Likert 1–5,0.8,1.5,Social Sciences
+A_1,Personality,Agreeableness,Likert 1–5,−0.8,1.2,Social Sciences
+A_2,Personality,Agreeableness,Likert 1–5,−0.3,1.4,Social Sciences
+A_3,Personality,Agreeableness (R),Likert 1–5,0.3,1.4,Social Sciences
+A_4,Personality,Agreeableness,Likert 1–5,0.7,1.5,Social Sciences
+N1,Personality,Neuroticism (R),Likert 1–5,−0.8,1.2,STEM / Sports
+N2,Personality,Neuroticism,Likert 1–5,−0.3,1.3,STEM / Sports
+N3,Personality,Neuroticism (R),Likert 1–5,0.2,1.5,STEM / Sports
+N4,Personality,Neuroticism,Likert 1–5,0.6,1.4,STEM / Sports

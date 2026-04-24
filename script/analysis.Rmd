@@ -1,0 +1,325 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+Load data
+```{r}
+#import libraries and data 
+library(psych)
+library(dplyr)
+library(mirt)
+library(readxl)
+#load data 
+full_response <- read_csv("CBC_CAT_responses_full.csv")
+aptitude <- read_csv("CBC_CAT_aptitude_responses.csv")
+personality <- read_csv("CBC_CAT_personality_responses.csv")
+mapping_table <- read_excel("mapping_table.xlsx")
+
+#preview first few rows
+head(full_response)
+head(aptitude)
+head(personality)
+head(mapping_table)
+
+```
+# Data Quality Check. 
+
+## a) Reliability: Crobach's Alpha
+
+```{r}
+#ignore student id before running alphas
+full_items <- full_response %>%
+  select(-student_id) %>%
+  mutate(across(everything(), as.numeric))
+
+aptitude_items <- aptitude %>%
+  select(-student_id) %>%
+  mutate(across(everything(), as.numeric))
+
+personality_items <- personality %>%
+  select(-student_id) %>%
+  mutate(across(everything(), as.numeric))
+
+
+#run cronbach's alpha
+alpha(full_items, check.keys = TRUE)
+alpha(aptitude_items, check.keys = TRUE)
+alpha(personality_items, check.keys = TRUE)
+
+#item correlation check 
+alpha_full <- alpha(full_items, check.keys = TRUE)
+alpha_apt <- alpha(aptitude_items, check.keys = TRUE)
+alpha_pers <- alpha(personality_items, check.keys = TRUE)
+
+#results
+alpha_full$item.stats
+alpha_apt$item.stats
+alpha_pers$item.stats
+
+```
+
+Before assessing reliability, non-item identifier variables were removed and all item responses were converted to numeric format. Reverse-keyed items were handled using check.keys = TRUE. Internal consistency was then assessed using Cronbach’s alpha for the full item pool, aptitude subscale, and personality subscale.
+
+Reliability of the generated response data was assessed using Cronbach’s alpha for the full item pool and each subscale.
+
+For the full dataset (56 items), the standardized Cronbach’s alpha was 0.83, indicating good internal consistency after accounting for differences in item variance.
+
+The aptitude subscale (30 items) demonstrated excellent reliability (α = 0.90), suggesting a high level of consistency among items measuring cognitive ability.
+
+The personality subscale (26 items) showed moderate reliability (α = 0.61). This is expected, as personality constructs are typically more heterogeneous and may capture multiple underlying traits. It may also reflect the presence of reverse-coded or multidimensional items, which is common in personality measurement.
+
+Overall, the results indicate that the generated data exhibit acceptable to strong reliability, supporting their suitability for subsequent IRT calibration.
+
+b) Validity
+
+Construct Validity
+```{r}
+#validity of the full dataset
+fa.parallel(full_items)
+fa_full <- fa(full_items, nfactors = 2, rotate = "varimax")
+print(fa_full$loadings, cutoff = 0.3)
+```
+Factor analysis of the full dataset revealed a two-factor structure corresponding to the aptitude and personality item groups, supporting the intended construct design.
+
+```{r}
+#subscale
+#aptitutde 
+fa(aptitude_items, nfactors = 1)
+
+#personality 
+fa(personality_items, n_factors = 1)
+```
+Factor analysis of the full dataset revealed a two-factor structure corresponding to the aptitude and personality item groups, supporting the intended construct design.
+
+
+Discriminant validity 
+
+```{r}
+#discriminant validity 
+apt_score <- rowSums(aptitude_items)
+pers_score <- rowSums(personality_items)
+
+cor(apt_score, pers_score)
+```
+The correlation between aptitude and personality scores was very low (r = 0.03), indicating that the two constructs are largely independent. This supports strong discriminant validity, as the two item sets are designed to measure distinct underlying traits.
+
+
+Content validty 
+```{r}
+#aptitutde difficulty 
+colMeans(aptitude_items)
+#personality varibaility 
+apply(personality_items, 2, sd)
+```
+The proportion of correct responses for aptitude items ranged from approximately 0.10 to 0.80, indicating a well-distributed range of item difficulty. Easier items had higher response rates, while more difficult items had lower response rates, consistent with the simulated design.
+
+Personality items exhibited consistent variability, with standard deviations ranging from approximately 1.18 to 1.39. This indicates that responses are well-distributed across respondents and that all items contribute meaningful information.
+
+## Calibrate Item Parameters
+
+```{r}
+#prep aptitutde data 
+apt_matrix <- as.matrix(aptitude_items)
+#fit irt model 
+model_2pl <- mirt(apt_matrix, 1, itemtype = "2PL")
+#extract item parameters
+coef_2pl <- coef(model_2pl, IRTpars = TRUE, simplify = TRUE)
+coef_2pl$items
+
+#estimate student ability 
+theta <- fscores(model_2pl)
+```
+
+The 2PL model results indicate that item discrimination parameters range from approximately 0.76 to 2.24, suggesting that most items have good to strong ability to differentiate between students. Item difficulty parameters span from -2.09 to 1.87, covering a wide range from easy to difficult items. This distribution is appropriate for computerized adaptive testing, as it allows accurate measurement across different ability levels.
+
+
+Curves 
+```{r}
+#ICC 
+plot(model_2pl, type = "trace")
+
+#IIC
+plot(model_2pl, type = "info")
+```
+
+## Build adaptive testing system 
+```{r}
+#create function 
+run_cat <- function(model, response_vector, max_items = 10, se_stop = 0.30) {
+  
+  all_items <- colnames(response_vector)
+  administered <- c()
+  responses <- c()
+  theta_history <- c()
+  se_history <- c()
+  
+  theta_est <- 0
+  se_est <- NA
+  
+  params <- coef(model, IRTpars = TRUE, simplify = TRUE)$items
+  
+  for (i in 1:max_items) {
+    
+    # choose first item: medium difficulty
+    if (i == 1) {
+      next_item <- rownames(params)[which.min(abs(params[, "b"]))]
+    } else {
+      unused_items <- setdiff(all_items, administered)
+      
+      info_values <- sapply(unused_items, function(item) {
+        item_index <- which(all_items == item)
+        iteminfo(extract.item(model, item_index), Theta = theta_est)
+      })
+      
+      next_item <- unused_items[which.max(info_values)]
+    }
+    
+    # administer item
+    administered <- c(administered, next_item)
+    responses <- c(responses, as.numeric(response_vector[[next_item]]))
+    
+    # create response pattern with NA for unadministered items
+    pattern <- rep(NA, length(all_items))
+    names(pattern) <- all_items
+    pattern[administered] <- responses
+    
+    # update theta
+    score <- fscores(
+      model,
+      response.pattern = matrix(pattern, nrow = 1),
+      method = "EAP",
+      full.scores.SE = TRUE)
+    
+    theta_est <- score[1, 1]
+    se_est <- score[1, 2]
+    
+    theta_history <- c(theta_history, theta_est)
+    se_history <- c(se_history, se_est)
+    
+    if (!is.na(se_est) && se_est < se_stop) break
+  }
+  
+  data.frame(
+    step = 1:length(administered),
+    item = administered,
+    response = responses,
+    theta = theta_history,
+    SE = se_history
+  )
+}
+
+#run cat for one student 
+student1 <- aptitude_items[1, , drop = FALSE]
+
+#run function 
+cat_result <- run_cat(model_2pl, student1, max_items = 10, se_stop = 0.30)
+
+#results 
+cat_result
+```
+The CAT system dynamically updates the student’s ability estimate after each item. As more items are administered, the standard error decreases, indicating increased precision. The sequence of items adapts to the student’s responses, selecting items that maximize information at the current ability estimate.
+
+
+Run for 3 students 
+```{r}
+#three example students
+#compute total score for each student
+scores <- rowSums(aptitude_items)
+#identify low, middle, and high student abaility 
+low_id <- which.min(scores)
+high_id <- which.max(scores)
+mid_id <- which.min(abs(scores - mean(scores)))
+#run Cat for each selected student 
+cat_low  <- run_cat(model_2pl, aptitude_items[low_id, , drop = FALSE])
+cat_mid  <- run_cat(model_2pl, aptitude_items[mid_id, , drop = FALSE])
+cat_high <- run_cat(model_2pl, aptitude_items[high_id, , drop = FALSE])
+
+#show results 
+print(cat_low)
+print(cat_mid)
+print(cat_high)
+```
+
+```{r}
+#compare final ability 
+cat_low$theta[nrow(cat_low)]
+cat_mid$theta[nrow(cat_mid)]
+cat_high$theta[nrow(cat_high)]
+
+#summary table
+data.frame(
+  student = c("Low", "Mid", "High"),
+  final_theta = c(
+    tail(cat_low$theta, 1),
+    tail(cat_mid$theta, 1),
+    tail(cat_high$theta, 1)
+  ),
+  final_SE = c(
+    tail(cat_low$SE, 1),
+    tail(cat_mid$SE, 1),
+    tail(cat_high$SE, 1)
+  )
+)
+```
+Pathway recommendation 
+```{r}
+#pathway function
+recommend_pathway <- function(cat_result, mapping_table) {
+  
+  # merge CAT results with mapping table
+  df <- merge(cat_result, mapping_table,
+              by.x = "item", by.y = "Item ID")
+  
+  # initialize scores
+  STEM <- 0
+  SOCIAL <- 0
+  ARTS <- 0
+  
+  # loop through items
+  for (i in 1:nrow(df)) {
+    
+    # weight by response (0 or 1)
+    if (df$`Pathway Signal`[i] == "STEM") {
+      STEM <- STEM + df$response[i]
+    }
+    if (df$`Pathway Signal`[i] == "Social Sciences") {
+      SOCIAL <- SOCIAL + df$response[i]
+    }
+    if (df$`Pathway Signal`[i] == "Arts & Sports") {
+      ARTS <- ARTS + df$response[i]
+    }
+  }
+  
+  # normalize by number of items asked per pathway
+  STEM <- STEM / sum(df$`Pathway Signal` == "STEM")
+  SOCIAL <- SOCIAL / sum(df$`Pathway Signal` == "Social Sciences")
+  ARTS <- ARTS / sum(df$`Pathway Signal` == "Arts & Sports")
+  
+  # combine scores
+  scores <- c(STEM = STEM, SOCIAL = SOCIAL, ARTS = ARTS)
+  
+  # recommendation
+  if (all(scores == 0)) {
+    recommendation <- "No clear recommendation"
+  } else {
+    recommendation <- names(scores)[which.max(scores)]
+  }
+}
+
+#apply the function 
+rec_low  <- recommend_pathway(cat_low, mapping_table)
+rec_mid  <- recommend_pathway(cat_mid, mapping_table)
+rec_high <- recommend_pathway(cat_high, mapping_table)
+
+#output
+print(rec_low)
+print(rec_mid)
+print(rec_high)
+
+```
+
+```{r}
+
+```
