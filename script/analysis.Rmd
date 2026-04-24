@@ -1,5 +1,10 @@
 ---
-title: "R Notebook"
+title: "CAT Analysis"
+author:
+  - "Apiwan Duangphummet"
+  - "Josahn Oginga"
+  - "Marzia Azizi"
+
 output: html_notebook
 ---
 
@@ -12,10 +17,10 @@ library(dplyr)
 library(mirt)
 library(readxl)
 #load data 
-full_response <- read_csv("CBC_CAT_responses_full.csv")
-aptitude <- read_csv("CBC_CAT_aptitude_responses.csv")
-personality <- read_csv("CBC_CAT_personality_responses.csv")
-mapping_table <- read_excel("mapping_table.xlsx")
+full_response <- read_csv("../data/CBC_CAT_responses_full.csv")
+aptitude <- read_csv("../data/CBC_CAT_aptitude_responses.csv")
+personality <- read_csv("../data/CBC_CAT_personality_responses.csv")
+mapping_table <- read_excel("../data/mapping_table.xlsx")
 
 #preview first few rows
 head(full_response)
