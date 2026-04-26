@@ -15,6 +15,7 @@ library(psych)
 library(dplyr)
 library(mirt)
 library(readxl)
+library(readr)
 #load data 
 full_response <- read_csv("../data/CBC_CAT_responses_full.csv")
 aptitude <- read_csv("../data/CBC_CAT_aptitude_responses.csv")

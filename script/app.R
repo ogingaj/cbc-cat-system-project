@@ -2,12 +2,13 @@
 # app.R — CBC CAT Pathway Recommendation Dashboard
 # =============================================================================
 
+load("cat_objects.RData")
+source("pathway_utils.R")
+
 library(shiny)
 library(shinydashboard)
 library(ggplot2)
 library(fmsb)
-
-source("pathway_utils.R")
 
 # =============================================================================
 # PRE-COMPUTE — results for all three demo students
