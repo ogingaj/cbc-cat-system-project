@@ -1,0 +1,10 @@
+name: cbc-cat-pathway-advisor
+title:
+username: josahn-oginga
+account: josahn-oginga
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17229558
+bundleId: 11907314
+url: https://josahn-oginga.shinyapps.io/cbc-cat-pathway-advisor/
+version: 1

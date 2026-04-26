@@ -561,64 +561,7 @@ data.frame(
 )
 ```
 ## b) Pathway recommendation 
-```{r}
-# =============================================================================
-# PATHWAY RECOMMENDATION FUNCTION
-# Weights CAT responses by pathway signal, normalises, returns label + scores
-# =============================================================================
-recommend_pathway <- function(cat_result, mapping_table) {
-  
-  # ── merge CAT results with mapping table ─────────────────────────────────
-  df <- merge(cat_result, mapping_table,
-              by.x = "item", by.y = "Item ID")
-  
-  # ── count items administered per pathway ─────────────────────────────────
-  n_stem   <- sum(df$`Pathway Signal` == "STEM")
-  n_social <- sum(df$`Pathway Signal` == "Social Sciences")
-  n_arts   <- sum(df$`Pathway Signal` == "Arts & Sports")
-  
-  # ── sum responses per pathway ─────────────────────────────────────────────
-  STEM   <- sum(df$response[df$`Pathway Signal` == "STEM"])
-  SOCIAL <- sum(df$response[df$`Pathway Signal` == "Social Sciences"])
-  ARTS   <- sum(df$response[df$`Pathway Signal` == "Arts & Sports"])
-  
-  # ── normalise — guard against division by zero ───────────────────────────
-  STEM   <- if (n_stem   > 0) STEM   / n_stem   else 0
-  SOCIAL <- if (n_social > 0) SOCIAL / n_social else 0
-  ARTS   <- if (n_arts   > 0) ARTS   / n_arts   else 0
-  
-  scores <- c(STEM = STEM, `Social Sciences` = SOCIAL, `Arts & Sports` = ARTS)
-  
-  # ── recommendation ────────────────────────────────────────────────────────
-  recommendation <- if (all(scores == 0)) {
-    "No clear recommendation"
-  } else {
-    names(scores)[which.max(scores)]
-  }
-  
-  # ── return both label and scores (needed for Shiny bar chart) ─────────────
-  return(list(
-    recommendation = recommendation,
-    scores         = scores
-  ))
-}
 
-# ── apply to three students ───────────────────────────────────────────────────
-rec_low  <- recommend_pathway(cat_low,  mapping_table)
-rec_mid  <- recommend_pathway(cat_mid,  mapping_table)
-rec_high <- recommend_pathway(cat_high, mapping_table)
-
-# ── output ────────────────────────────────────────────────────────────────────
-cat("Low ability student: ",  rec_low$recommendation,  "\n")
-cat("Mid ability student: ",  rec_mid$recommendation,  "\n")
-cat("High ability student: ", rec_high$recommendation, "\n")
-
-# pathway score breakdowns
-print(rec_low$scores)
-print(rec_mid$scores)
-print(rec_high$scores)
-
-```
 # 7. CAT Visualization
 ```{r}
 # =============================================================================
