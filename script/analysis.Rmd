@@ -8,7 +8,6 @@ author:
 output: html_notebook
 ---
 
-
 Load data
 ```{r}
 #import libraries and data 
@@ -23,18 +22,29 @@ personality <- read_csv("../data/CBC_CAT_personality_responses.csv")
 mapping_table <- read_excel("../data/mapping_table.xlsx")
 
 #preview first few rows
-head(full_response)
-head(aptitude)
-head(personality)
-head(mapping_table)
+#head(full_response)
+#head(aptitude)
+#head(personality)
+#head(mapping_table)
 
 ```
-# Data Quality Check. 
-
-## a) Reliability: Crobach's Alpha
+# 3. Data Quality Check. 
 
 ```{r}
-#ignore student id before running alphas
+#item groupings
+#aptitude
+stem_items <- c("A1","A2","A3","A4","A5","A6","A7","A8","A9","A10","A11","A12")
+soc_items  <- c("B1","B2","B3","B4","B5","B6","B7","B8","B9","B10")
+arts_items <- c("C1","C2","C3","C4","C5","C6","C7","C8")
+
+#personality
+open_items <- c("O1","O2","O3","O4","O5","O6")
+cons_items <- c("C_1","C_2","C_3","C_4","C_5","C_6")
+extr_items <- c("E1","E2","E3","E4","E5","E6")
+agre_items <- c("A_1","A_2","A_3","A_4")
+neur_items <- c("N1","N2","N3","N4")
+
+#prepare data - strip student_id and coerce to numerica 
 full_items <- full_response %>%
   select(-student_id) %>%
   mutate(across(everything(), as.numeric))
@@ -47,23 +57,159 @@ personality_items <- personality %>%
   select(-student_id) %>%
   mutate(across(everything(), as.numeric))
 
+```
 
-#run cronbach's alpha
-alpha(full_items, check.keys = TRUE)
-alpha(aptitude_items, check.keys = TRUE)
-alpha(personality_items, check.keys = TRUE)
 
-#item correlation check 
-alpha_full <- alpha(full_items, check.keys = TRUE)
-alpha_apt <- alpha(aptitude_items, check.keys = TRUE)
+
+## a) Reliability: Crobach's Alpha
+```{r}
+#overall alphas
+alpha_full <- alpha(full_items,        check.keys = TRUE)
+alpha_apt  <- alpha(aptitude_items,    check.keys = TRUE)
 alpha_pers <- alpha(personality_items, check.keys = TRUE)
 
-#results
-alpha_full$item.stats
-alpha_apt$item.stats
-alpha_pers$item.stats
+cat("Overall Aptitude Alpha:    ", round(alpha_apt$total$raw_alpha,  4), "\n")
+cat("Overall Personality Alpha: ", round(alpha_pers$total$raw_alpha, 4), "\n")
 
 ```
+
+```{r}
+#aptitutde alpha by domain 
+alpha_stem <- alpha(aptitude_items %>% select(all_of(stem_items)),  check.keys = TRUE)
+alpha_soc  <- alpha(aptitude_items %>% select(all_of(soc_items)),   check.keys = TRUE)
+alpha_arts <- alpha(aptitude_items %>% select(all_of(arts_items)),  check.keys = TRUE)
+
+cat("\n--- Aptitude Alpha by Domain ---\n")
+cat("STEM:             ", round(alpha_stem$total$raw_alpha, 4), "\n")
+cat("Social Sciences:  ", round(alpha_soc$total$raw_alpha,  4), "\n")
+cat("Arts & Sports:    ", round(alpha_arts$total$raw_alpha, 4), "\n")
+
+```
+```{r}
+#personality alpha by trait 
+alpha_open <- alpha(personality_items %>% select(all_of(open_items)), check.keys = TRUE)
+alpha_cons <- alpha(personality_items %>% select(all_of(cons_items)), check.keys = TRUE)
+alpha_extr <- alpha(personality_items %>% select(all_of(extr_items)), check.keys = TRUE)
+alpha_agre <- alpha(personality_items %>% select(all_of(agre_items)), check.keys = TRUE)
+alpha_neur <- alpha(personality_items %>% select(all_of(neur_items)), check.keys = TRUE)
+
+cat("\n--- Personality Alpha by Trait ---\n")
+cat("Openness:          ", round(alpha_open$total$raw_alpha, 4), "\n")
+cat("Conscientiousness: ", round(alpha_cons$total$raw_alpha, 4), "\n")
+cat("Extraversion:      ", round(alpha_extr$total$raw_alpha, 4), "\n")
+cat("Agreeableness:     ", round(alpha_agre$total$raw_alpha, 4), "\n")
+cat("Neuroticism:       ", round(alpha_neur$total$raw_alpha, 4), "\n")
+```
+
+
+
+
+## b) Item level statistics 
+```{r}
+#aotitude item stats
+cat("\n--- Aptitude Item Statistics ---\n")
+alpha_apt$item.stats %>%
+  select(r.cor, r.drop) %>%
+  mutate(flag_low_ritc = r.cor < 0.20) %>%
+  print()
+
+#personality item starts
+cat("\n--- Personality Item Statistics ---\n")
+alpha_pers$item.stats %>%
+  select(r.cor, r.drop) %>%
+  mutate(flag_low_ritc = r.cor < 0.20) %>%
+  print()
+```
+
+
+## c) alpha if item is deleted 
+
+```{r}
+#
+cat("\n--- Alpha if Item Deleted — Aptitude ---\n")
+alpha_apt$alpha.drop %>%
+  select(raw_alpha) %>%
+  mutate(improves_alpha = raw_alpha > alpha_apt$total$raw_alpha) %>%
+  print()
+
+cat("\n--- Alpha if Item Deleted — Personality ---\n")
+alpha_pers$alpha.drop %>%
+  select(raw_alpha) %>%
+  mutate(improves_alpha = raw_alpha > alpha_pers$total$raw_alpha) %>%
+  print()
+```
+
+
+### d) Validity inter-item correlation check
+```{r}
+#Aptitude: within- vs between-domain correlations
+apt_cor <- cor(aptitude_items)
+
+within_stem  <- mean(apt_cor[stem_items, stem_items][upper.tri(apt_cor[stem_items, stem_items])])
+within_soc   <- mean(apt_cor[soc_items,  soc_items ][upper.tri(apt_cor[soc_items,  soc_items ])])
+within_arts  <- mean(apt_cor[arts_items, arts_items][upper.tri(apt_cor[arts_items, arts_items])])
+
+between_stem_soc  <- mean(apt_cor[stem_items, soc_items])
+between_stem_arts <- mean(apt_cor[stem_items, arts_items])
+between_soc_arts  <- mean(apt_cor[soc_items,  arts_items])
+
+cat("\n--- Aptitude: Within- vs Between-Domain Correlations ---\n")
+cat("Within STEM:               ", round(within_stem,       4), "\n")
+cat("Within Social Sciences:    ", round(within_soc,        4), "\n")
+cat("Within Arts & Sports:      ", round(within_arts,       4), "\n")
+cat("Between STEM & Soc Sci:    ", round(between_stem_soc,  4), "\n")
+cat("Between STEM & Arts:       ", round(between_stem_arts, 4), "\n")
+cat("Between Soc Sci & Arts:    ", round(between_soc_arts,  4), "\n")
+cat("\nValidity check: within-domain r should exceed between-domain r.\n")
+```
+
+
+
+
+```{r}
+#Personality: within- vs between-trait correlations
+pers_cor <- cor(personality_items)
+
+within_open <- mean(pers_cor[open_items, open_items][upper.tri(pers_cor[open_items, open_items])])
+within_cons <- mean(pers_cor[cons_items, cons_items][upper.tri(pers_cor[cons_items, cons_items])])
+within_extr <- mean(pers_cor[extr_items, extr_items][upper.tri(pers_cor[extr_items, extr_items])])
+within_agre <- mean(pers_cor[agre_items, agre_items][upper.tri(pers_cor[agre_items, agre_items])])
+within_neur <- mean(pers_cor[neur_items, neur_items][upper.tri(pers_cor[neur_items, neur_items])])
+
+between_open_cons <- mean(pers_cor[open_items, cons_items])
+between_open_extr <- mean(pers_cor[open_items, extr_items])
+between_cons_extr <- mean(pers_cor[cons_items, extr_items])
+between_agre_extr <- mean(pers_cor[agre_items, extr_items])
+between_neur_cons <- mean(pers_cor[neur_items, cons_items])
+
+cat("\n--- Personality: Within- vs Between-Trait Correlations ---\n")
+cat("Within Openness:           ", round(within_open,       4), "\n")
+cat("Within Conscientiousness:  ", round(within_cons,       4), "\n")
+cat("Within Extraversion:       ", round(within_extr,       4), "\n")
+cat("Within Agreeableness:      ", round(within_agre,       4), "\n")
+cat("Within Neuroticism:        ", round(within_neur,       4), "\n")
+cat("Between Openness & Cons:   ", round(between_open_cons, 4), "\n")
+cat("Between Openness & Extr:   ", round(between_open_extr, 4), "\n")
+cat("Between Cons & Extr:       ", round(between_cons_extr, 4), "\n")
+cat("Between Agree & Extr:      ", round(between_agre_extr, 4), "\n")
+cat("Between Neur & Cons:       ", round(between_neur_cons, 4), "\n")
+cat("\nValidity check: within-trait r should exceed between-trait r.\n")
+```
+
+
+
+
+
+
+
+
+
+```{r}
+#
+```
+
+
+
 
 Before assessing reliability, non-item identifier variables were removed and all item responses were converted to numeric format. Reverse-keyed items were handled using check.keys = TRUE. Internal consistency was then assessed using Cronbach’s alpha for the full item pool, aptitude subscale, and personality subscale.
 
@@ -77,157 +223,303 @@ The personality subscale (26 items) showed moderate reliability (α = 0.61). Thi
 
 Overall, the results indicate that the generated data exhibit acceptable to strong reliability, supporting their suitability for subsequent IRT calibration.
 
-b) Validity
+## e) Factor analysis 
+
 
 Construct Validity
 ```{r}
-#validity of the full dataset
-fa.parallel(full_items)
-fa_full <- fa(full_items, nfactors = 2, rotate = "varimax")
-print(fa_full$loadings, cutoff = 0.3)
-```
-Factor analysis of the full dataset revealed a two-factor structure corresponding to the aptitude and personality item groups, supporting the intended construct design.
-
-```{r}
-#subscale
 #aptitutde 
-fa(aptitude_items, nfactors = 1)
+fa.parallel(aptitude_items, fm = "ml", fa = "fa")
+fa_apt <- fa(aptitude_items, nfactors = 3, rotate = "oblimin", fm = "ml")
+print(fa_apt$loadings, cutoff = 0.3)
 
 #personality 
-fa(personality_items, n_factors = 1)
+fa.parallel(personality_items, fm = "ml", fa = "fa")
+fa_pers <- fa(personality_items, nfactors = 5, rotate = "oblimin", fm = "ml")
+print(fa_pers$loadings, cutoff = 0.3)
 ```
 Factor analysis of the full dataset revealed a two-factor structure corresponding to the aptitude and personality item groups, supporting the intended construct design.
 
-
-Discriminant validity 
-
-```{r}
-#discriminant validity 
-apt_score <- rowSums(aptitude_items)
-pers_score <- rowSums(personality_items)
-
-cor(apt_score, pers_score)
-```
-The correlation between aptitude and personality scores was very low (r = 0.03), indicating that the two constructs are largely independent. This supports strong discriminant validity, as the two item sets are designed to measure distinct underlying traits.
+Factor analysis of the full dataset revealed a two-factor structure corresponding to the aptitude and personality item groups, supporting the intended construct design.
 
 
-Content validty 
-```{r}
-#aptitutde difficulty 
-colMeans(aptitude_items)
-#personality varibaility 
-apply(personality_items, 2, sd)
-```
-The proportion of correct responses for aptitude items ranged from approximately 0.10 to 0.80, indicating a well-distributed range of item difficulty. Easier items had higher response rates, while more difficult items had lower response rates, consistent with the simulated design.
+# 4. Calibrate Item Parameters
 
-Personality items exhibited consistent variability, with standard deviations ranging from approximately 1.18 to 1.39. This indicates that responses are well-distributed across respondents and that all items contribute meaningful information.
-
-## Calibrate Item Parameters
+## a) Aptitude 2pl
 
 ```{r}
-#prep aptitutde data 
+# =============================================================================
+# STEP 4: IRT CALIBRATION
+# 2PL for aptitude (dichotomous)
+# =============================================================================
+
+# =============================================================================
+# STAGE 1: APTITUDE — 2PL MODEL
+# =============================================================================
+
+# ── 1. Prep data ──────────────────────────────────────────────────────────────
 apt_matrix <- as.matrix(aptitude_items)
-#fit irt model 
-model_2pl <- mirt(apt_matrix, 1, itemtype = "2PL")
-#extract item parameters
-coef_2pl <- coef(model_2pl, IRTpars = TRUE, simplify = TRUE)
-coef_2pl$items
 
-#estimate student ability 
-theta <- fscores(model_2pl)
+# ── 2. Fit 2PL model ──────────────────────────────────────────────────────────
+model_2pl <- mirt(apt_matrix, 1, itemtype = "2PL")
+summary(model_2pl)
+
+# ── 3. Check model fit ────────────────────────────────────────────────────────
+# M2 statistic: primary fit index for IRT models
+# Good fit: p > 0.05, RMSEA < 0.06, SRMSR < 0.08
+M2(model_2pl)
+
+# Item-level fit: flags individual misfitting items
+# Look for items with p < 0.05 — those may need review before CAT
+itemfit(model_2pl)
+
+# ── 4. Extract item parameters ────────────────────────────────────────────────
+# IRTpars = TRUE  → returns a (discrimination) and b (difficulty)
+# simplify = TRUE → returns a clean matrix instead of nested list
+coef_2pl <- coef(model_2pl, IRTpars = TRUE, simplify = TRUE)
+
+# Label parameters with domain and difficulty band for easy interpretation
+apt_params <- as.data.frame(coef_2pl$items) %>%
+  select(a, b) %>%
+  mutate(
+    domain = case_when(
+      rownames(.) %in% stem_items ~ "STEM",
+      rownames(.) %in% soc_items  ~ "Social Sciences",
+      TRUE                        ~ "Arts & Sports"
+    ),
+    difficulty_band = case_when(
+      b < -1 ~ "Easy",
+      b <  0 ~ "Below Average",
+      b <  1 ~ "Above Average",
+      TRUE   ~ "Hard"
+    )
+  )
+
+print(apt_params)
+
+# ── 5. Estimate student ability (theta) ───────────────────────────────────────
+# fscores() returns EAP estimates by default — appropriate for CAT
+theta_scores <- fscores(model_2pl, full.scores.SE = TRUE)
+
+# Save with student IDs for use in CAT engine (Step 5)
+theta_df <- data.frame(
+  student_id = aptitude$student_id,
+  theta      = theta_scores[, 1],   # ability estimate
+  se         = theta_scores[, 2]    # standard error of measurement
+)
+
+print(head(theta_df))
+
+# ── 6. Plots — required for presentation (Steps 7) ───────────────────────────
+
+# Item Characteristic Curves (ICC)
+# Shows P(correct) as a function of theta for each item
+# Steeper slope = higher discrimination (a); curve position = difficulty (b)
+plot(model_2pl, type = "trace",     main = "ICC — Aptitude Items")
+
+# Item Information Curves (IIC)
+# Shows how much information each item contributes at each theta level
+# Peak of curve = where item is most informative = around item's b value
+plot(model_2pl, type = "infotrace", main = "IIC — Aptitude Items")
+
+# Test Information Curve (TIC)
+# Sum of all item information — shows where the overall test is most precise
+# CAT stopping rule (SE < 0.30) is equivalent to information > 1/0.30^2 ≈ 11
+plot(model_2pl, type = "info",      main = "Test Information Curve — Aptitude")
+
+# Standard Error Curve
+# Inverse of information — shows measurement precision across theta levels
+plot(model_2pl, type = "SE",        main = "Standard Error Curve — Aptitude")
+
+
+
+```
+
+## b) Personality GRM
+```{r}
+## =============================================================================
+# STAGE 2: PERSONALITY — GRADED RESPONSE MODEL (GRM)
+# =============================================================================
+
+
+# ── 1. Prep data ──────────────────────────────────────────────────────────────
+pers_matrix <- as.matrix(personality_items)
+
+# ── 2. Fit GRM ────────────────────────────────────────────────────────────────
+model_open <- mirt(as.matrix(personality_items %>% select(all_of(open_items))), 1, itemtype = "graded")
+model_cons <- mirt(as.matrix(personality_items %>% select(all_of(cons_items))), 1, itemtype = "graded")
+model_extr <- mirt(as.matrix(personality_items %>% select(all_of(extr_items))), 1, itemtype = "graded")
+model_agre <- mirt(as.matrix(personality_items %>% select(all_of(agre_items))), 1, itemtype = "graded")
+model_neur <- mirt(as.matrix(personality_items %>% select(all_of(neur_items))), 1, itemtype = "graded")
+
+# ── 3. Check model fit ────────────────────────────────────────────────────────
+# polytomous tables regardless of subscale size
+itemfit(model_open)
+itemfit(model_cons)
+itemfit(model_extr)
+itemfit(model_agre)
+itemfit(model_neur)
+
+# ── 4. Extract item parameters ────────────────────────────────────────────────
+coef(model_open, IRTpars = TRUE, simplify = TRUE)$items
+coef(model_cons, IRTpars = TRUE, simplify = TRUE)$items
+coef(model_extr, IRTpars = TRUE, simplify = TRUE)$items
+coef(model_agre, IRTpars = TRUE, simplify = TRUE)$items
+coef(model_neur, IRTpars = TRUE, simplify = TRUE)$items
+
+# ── 5. Estimate trait scores ──────────────────────────────────────────────────
+scores_open <- fscores(model_open, full.scores.SE = TRUE)
+scores_cons <- fscores(model_cons, full.scores.SE = TRUE)
+scores_extr <- fscores(model_extr, full.scores.SE = TRUE)
+scores_agre <- fscores(model_agre, full.scores.SE = TRUE)
+scores_neur <- fscores(model_neur, full.scores.SE = TRUE)
+
+
+# ── 6. Save trait scores with student IDs ────────────────────────────────────
+trait_df <- data.frame(
+  student_id        = personality$student_id,
+  openness          = scores_open[, 1],
+  conscientiousness = scores_cons[, 1],
+  extraversion      = scores_extr[, 1],
+  agreeableness     = scores_agre[, 1],
+  neuroticism       = scores_neur[, 1]
+)
+
+print(head(trait_df))
+
+# ── 7. Save standard errors ───────────────────────────────────────────────────
+se_df <- data.frame(
+  student_id           = personality$student_id,
+  se_openness          = scores_open[, 2],
+  se_conscientiousness = scores_cons[, 2],
+  se_extraversion      = scores_extr[, 2],
+  se_agreeableness     = scores_agre[, 2],
+  se_neuroticism       = scores_neur[, 2]
+)
+
+print(head(se_df))
 ```
 
 The 2PL model results indicate that item discrimination parameters range from approximately 0.76 to 2.24, suggesting that most items have good to strong ability to differentiate between students. Item difficulty parameters span from -2.09 to 1.87, covering a wide range from easy to difficult items. This distribution is appropriate for computerized adaptive testing, as it allows accurate measurement across different ability levels.
 
 
-Curves 
+## d) ICC Curves 
 ```{r}
-#ICC 
-plot(model_2pl, type = "trace")
+# ICC for GRM: shows probability of each response category (1–5) across theta
+# Each item produces 5 curves — one per response category
+plot(model_open, type = "trace",     main = "ICC — Openness")
+plot(model_open, type = "infotrace", main = "IIC — Openness")
 
-#IIC
-plot(model_2pl, type = "info")
+plot(model_cons, type = "trace",     main = "ICC — Conscientiousness")
+plot(model_cons, type = "infotrace", main = "IIC — Conscientiousness")
+
+plot(model_extr, type = "trace",     main = "ICC — Extraversion")
+plot(model_extr, type = "infotrace", main = "IIC — Extraversion")
+
+plot(model_agre, type = "trace",     main = "ICC — Agreeableness")
+plot(model_agre, type = "infotrace", main = "IIC — Agreeableness")
+
+plot(model_neur, type = "trace",     main = "ICC — Neuroticism")
+plot(model_neur, type = "infotrace", main = "IIC — Neuroticism")
+
+
 ```
 
-## Build adaptive testing system 
+#5. Build adaptive testing system 
 ```{r}
-#create function 
+# =============================================================================
+# STEP 5: CAT ENGINE
+# Max Fisher information item selection | EAP ability updating | SE < 0.30 stop
+# =============================================================================
+
 run_cat <- function(model, response_vector, max_items = 10, se_stop = 0.30) {
   
-  all_items <- colnames(response_vector)
-  administered <- c()
-  responses <- c()
+  # ── initialise tracking vectors ───────────────────────────────────────────
+  all_items     <- colnames(response_vector)
+  administered  <- c()
+  responses     <- c()
   theta_history <- c()
-  se_history <- c()
+  se_history    <- c()
   
+  # starting values: theta = 0 (centre of scale), SE = unknown
   theta_est <- 0
-  se_est <- NA
+  se_est    <- NA
   
+  # extract item parameters once — reused at every step
   params <- coef(model, IRTpars = TRUE, simplify = TRUE)$items
   
   for (i in 1:max_items) {
     
-    # choose first item: medium difficulty
+    # ── item selection ───────────────────────────────────────────────────────
+    # first item: pick closest b to 0 — medium difficulty as neutral start
     if (i == 1) {
       next_item <- rownames(params)[which.min(abs(params[, "b"]))]
+      
     } else {
+      # subsequent items: maximum Fisher information at current theta
       unused_items <- setdiff(all_items, administered)
       
       info_values <- sapply(unused_items, function(item) {
         item_index <- which(all_items == item)
-        iteminfo(extract.item(model, item_index), Theta = theta_est)
+        # Theta must be a matrix for iteminfo() — not a bare scalar
+        iteminfo(extract.item(model, item_index),
+                 Theta = matrix(theta_est, ncol = 1))
       })
       
       next_item <- unused_items[which.max(info_values)]
     }
     
-    # administer item
+    # ── administer item ──────────────────────────────────────────────────────
     administered <- c(administered, next_item)
-    responses <- c(responses, as.numeric(response_vector[[next_item]]))
+    responses    <- c(responses, as.numeric(response_vector[[next_item]]))
     
-    # create response pattern with NA for unadministered items
-    pattern <- rep(NA, length(all_items))
+    # ── build response pattern ───────────────────────────────────────────────
+    # fscores() needs a full-length vector — NA for unadministered items
+    pattern        <- rep(NA, length(all_items))
     names(pattern) <- all_items
     pattern[administered] <- responses
     
-    # update theta
+    # ── update theta ─────────────────────────────────────────────────────────
+    # EAP preferred over MLE — MLE returns ±Inf on all-correct/all-incorrect
+    # patterns early in the test, EAP stays bounded throughout
     score <- fscores(
       model,
       response.pattern = matrix(pattern, nrow = 1),
-      method = "EAP",
-      full.scores.SE = TRUE)
+      method           = "EAP",
+      full.scores.SE   = TRUE
+    )
     
     theta_est <- score[1, 1]
-    se_est <- score[1, 2]
+    se_est    <- score[1, 2]
     
     theta_history <- c(theta_history, theta_est)
-    se_history <- c(se_history, se_est)
+    se_history    <- c(se_history,    se_est)
     
+    # ── stopping rule ────────────────────────────────────────────────────────
+    # stop early if SE drops below 0.30 — equivalent to information > 11.1
     if (!is.na(se_est) && se_est < se_stop) break
   }
   
+  # ── return results ────────────────────────────────────────────────────────
   data.frame(
-    step = 1:length(administered),
-    item = administered,
+    step     = 1:length(administered),
+    item     = administered,
     response = responses,
-    theta = theta_history,
-    SE = se_history
+    theta    = theta_history,
+    SE       = se_history
   )
 }
 
-#run cat for one student 
-student1 <- aptitude_items[1, , drop = FALSE]
-
-#run function 
+# ── run CAT for student 1 ─────────────────────────────────────────────────────
+student1   <- aptitude_items[1, , drop = FALSE]
 cat_result <- run_cat(model_2pl, student1, max_items = 10, se_stop = 0.30)
-
-#results 
 cat_result
 ```
 The CAT system dynamically updates the student’s ability estimate after each item. As more items are administered, the standard error decreases, indicating increased precision. The sequence of items adapts to the student’s responses, selecting items that maximize information at the current ability estimate.
 
 
-Run for 3 students 
+# 6. Run for 3 students 
+## a) Sample 3 students 
 ```{r}
 #three example students
 #compute total score for each student
@@ -268,63 +560,267 @@ data.frame(
   )
 )
 ```
-Pathway recommendation 
+## b) Pathway recommendation 
 ```{r}
-#pathway function
+# =============================================================================
+# PATHWAY RECOMMENDATION FUNCTION
+# Weights CAT responses by pathway signal, normalises, returns label + scores
+# =============================================================================
 recommend_pathway <- function(cat_result, mapping_table) {
   
-  # merge CAT results with mapping table
+  # ── merge CAT results with mapping table ─────────────────────────────────
   df <- merge(cat_result, mapping_table,
               by.x = "item", by.y = "Item ID")
   
-  # initialize scores
-  STEM <- 0
-  SOCIAL <- 0
-  ARTS <- 0
+  # ── count items administered per pathway ─────────────────────────────────
+  n_stem   <- sum(df$`Pathway Signal` == "STEM")
+  n_social <- sum(df$`Pathway Signal` == "Social Sciences")
+  n_arts   <- sum(df$`Pathway Signal` == "Arts & Sports")
   
-  # loop through items
-  for (i in 1:nrow(df)) {
-    
-    # weight by response (0 or 1)
-    if (df$`Pathway Signal`[i] == "STEM") {
-      STEM <- STEM + df$response[i]
-    }
-    if (df$`Pathway Signal`[i] == "Social Sciences") {
-      SOCIAL <- SOCIAL + df$response[i]
-    }
-    if (df$`Pathway Signal`[i] == "Arts & Sports") {
-      ARTS <- ARTS + df$response[i]
-    }
-  }
+  # ── sum responses per pathway ─────────────────────────────────────────────
+  STEM   <- sum(df$response[df$`Pathway Signal` == "STEM"])
+  SOCIAL <- sum(df$response[df$`Pathway Signal` == "Social Sciences"])
+  ARTS   <- sum(df$response[df$`Pathway Signal` == "Arts & Sports"])
   
-  # normalize by number of items asked per pathway
-  STEM <- STEM / sum(df$`Pathway Signal` == "STEM")
-  SOCIAL <- SOCIAL / sum(df$`Pathway Signal` == "Social Sciences")
-  ARTS <- ARTS / sum(df$`Pathway Signal` == "Arts & Sports")
+  # ── normalise — guard against division by zero ───────────────────────────
+  STEM   <- if (n_stem   > 0) STEM   / n_stem   else 0
+  SOCIAL <- if (n_social > 0) SOCIAL / n_social else 0
+  ARTS   <- if (n_arts   > 0) ARTS   / n_arts   else 0
   
-  # combine scores
-  scores <- c(STEM = STEM, SOCIAL = SOCIAL, ARTS = ARTS)
+  scores <- c(STEM = STEM, `Social Sciences` = SOCIAL, `Arts & Sports` = ARTS)
   
-  # recommendation
-  if (all(scores == 0)) {
-    recommendation <- "No clear recommendation"
+  # ── recommendation ────────────────────────────────────────────────────────
+  recommendation <- if (all(scores == 0)) {
+    "No clear recommendation"
   } else {
-    recommendation <- names(scores)[which.max(scores)]
+    names(scores)[which.max(scores)]
   }
+  
+  # ── return both label and scores (needed for Shiny bar chart) ─────────────
+  return(list(
+    recommendation = recommendation,
+    scores         = scores
+  ))
 }
 
-#apply the function 
-rec_low  <- recommend_pathway(cat_low, mapping_table)
-rec_mid  <- recommend_pathway(cat_mid, mapping_table)
+# ── apply to three students ───────────────────────────────────────────────────
+rec_low  <- recommend_pathway(cat_low,  mapping_table)
+rec_mid  <- recommend_pathway(cat_mid,  mapping_table)
 rec_high <- recommend_pathway(cat_high, mapping_table)
 
-#output
-print(rec_low)
-print(rec_mid)
-print(rec_high)
+# ── output ────────────────────────────────────────────────────────────────────
+cat("Low ability student: ",  rec_low$recommendation,  "\n")
+cat("Mid ability student: ",  rec_mid$recommendation,  "\n")
+cat("High ability student: ", rec_high$recommendation, "\n")
+
+# pathway score breakdowns
+print(rec_low$scores)
+print(rec_mid$scores)
+print(rec_high$scores)
 
 ```
-
+# 7. CAT Visualization
 ```{r}
+# =============================================================================
+# STEP 7: CAT VISUALISATION
+# Per step: θ̂ + SE trajectory | item selection rationale | ICC + IIC
+# =============================================================================
 
+library(ggplot2)
+
+# ── 1. Verbose version of run_cat — saves info snapshots at every step ────────
+# Needed so we can show WHY each item was selected at each step
+run_cat_verbose <- function(model, response_vector, max_items = 10, se_stop = 0.30) {
+  
+  all_items          <- colnames(response_vector)
+  administered       <- c()
+  responses          <- c()
+  theta_history      <- c()
+  se_history         <- c()
+  info_snapshots     <- list()   # info for ALL remaining items at each step
+  theta_at_selection <- c()      # theta value used for selection at each step
+  
+  theta_est <- 0
+  se_est    <- NA
+  
+  params <- coef(model, IRTpars = TRUE, simplify = TRUE)$items
+  
+  for (i in 1:max_items) {
+    
+    # record theta used for this selection step
+    theta_at_selection <- c(theta_at_selection, theta_est)
+    unused_items       <- setdiff(all_items, administered)
+    
+    # compute info for all remaining items at current theta
+    info_vals <- sapply(unused_items, function(item) {
+      idx <- which(all_items == item)
+      iteminfo(extract.item(model, idx), Theta = matrix(theta_est, ncol = 1))
+    })
+    names(info_vals) <- unused_items
+    info_snapshots[[i]] <- info_vals
+    
+    # step 1: b closest to 0 | step 2+: max Fisher information
+    if (i == 1) {
+      next_item <- rownames(params)[which.min(abs(params[, "b"]))]
+    } else {
+      next_item <- unused_items[which.max(info_vals)]
+    }
+    
+    # administer item
+    administered <- c(administered, next_item)
+    responses    <- c(responses, as.numeric(response_vector[[next_item]]))
+    
+    # full response pattern with NA for unadministered items
+    pattern        <- rep(NA, length(all_items))
+    names(pattern) <- all_items
+    pattern[administered] <- responses
+    
+    # update theta via EAP
+    score <- fscores(
+      model,
+      response.pattern = matrix(pattern, nrow = 1),
+      method           = "EAP",
+      full.scores.SE   = TRUE
+    )
+    
+    theta_est <- score[1, 1]
+    se_est    <- score[1, 2]
+    
+    theta_history <- c(theta_history, theta_est)
+    se_history    <- c(se_history,    se_est)
+    
+    if (!is.na(se_est) && se_est < se_stop) break
+  }
+  
+  list(
+    result             = data.frame(
+      step     = 1:length(administered),
+      item     = administered,
+      response = responses,
+      theta    = theta_history,
+      SE       = se_history
+    ),
+    info_snapshots     = info_snapshots,
+    theta_at_selection = theta_at_selection
+  )
+}
+
+# ── 2. θ̂ trajectory plot with SE ribbon ──────────────────────────────────────
+plot_theta_trajectory <- function(verbose_result, student_label = "Student") {
+  df <- verbose_result$result
+  
+  ggplot(df, aes(x = step)) +
+    geom_ribbon(aes(ymin = theta - SE, ymax = theta + SE),
+                fill = "steelblue", alpha = 0.2) +
+    geom_line(aes(y = theta), colour = "steelblue", linewidth = 1) +
+    geom_point(aes(y = theta), colour = "steelblue", size = 3) +
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+    geom_label(aes(y = theta, label = round(theta, 2)), vjust = -0.8, size = 3) +
+    scale_x_continuous(breaks = df$step) +
+    labs(
+      title    = paste("Ability Estimation Trajectory —", student_label),
+      subtitle = paste0(
+        "Final θ̂ = ", round(tail(df$theta, 1), 3),
+        "  |  Final SE = ", round(tail(df$SE, 1), 3),
+        "  |  Items administered: ", nrow(df)
+      ),
+      x = "CAT Step",
+      y = "Estimated Ability (θ̂)"
+    ) +
+    theme_minimal()
+}
+
+# ── 3. Item selection rationale — bar chart of all info at current θ ──────────
+# The selected item (red bar) has the highest Fisher information — that is why 
+# it was chosen. Step 1 uses b-proximity instead of max info, noted in subtitle.
+plot_item_selection <- function(verbose_result, step, student_label = "Student") {
+  
+  info_vals  <- verbose_result$info_snapshots[[step]]
+  selected   <- verbose_result$result$item[step]
+  theta_used <- verbose_result$theta_at_selection[step]
+  
+  df <- data.frame(
+    item     = names(info_vals),
+    info     = as.numeric(info_vals),
+    selected = names(info_vals) == selected
+  )
+  df <- df[order(df$info, decreasing = TRUE), ]
+  df$item <- factor(df$item, levels = df$item)
+  
+  subtitle <- if (step == 1) {
+    paste0("Step 1: item with b closest to θ̂ = 0 selected as neutral start (", selected, ")")
+  } else {
+    paste0("θ̂ = ", round(theta_used, 3),
+           " | ", selected, " has highest Fisher information — selected next")
+  }
+  
+  ggplot(df, aes(x = item, y = info, fill = selected)) +
+    geom_col() +
+    scale_fill_manual(
+      values = c("FALSE" = "grey75", "TRUE" = "firebrick"),
+      labels = c("Not selected", "Selected"),
+      name   = NULL
+    ) +
+    labs(
+      title    = paste0(student_label, " — Step ", step, ": Item Selection Rationale"),
+      subtitle = subtitle,
+      x        = "Item",
+      y        = paste0("Fisher Information at θ = ", round(theta_used, 3))
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+
+# ── 4. ICC and IIC for the item selected at a given step ──────────────────────
+plot_item_curves <- function(model, verbose_result, step,
+                             student_label = "Student", all_item_names) {
+  
+  item_name <- verbose_result$result$item[step]
+  item_idx  <- which(all_item_names == item_name)
+  
+  # ICC — probability of correct response across theta
+  plot(model, which.items = item_idx, type = "trace",
+       main = paste0(student_label, " — Step ", step, " | ICC: ", item_name))
+  
+  # IIC — Fisher information across theta
+  plot(model, which.items = item_idx, type = "infotrace",
+       main = paste0(student_label, " — Step ", step, " | IIC: ", item_name))
+}
+
+# =============================================================================
+# RUN VERBOSE CAT FOR THREE STUDENTS
+# =============================================================================
+
+verb_low  <- run_cat_verbose(model_2pl, aptitude_items[low_id,  , drop = FALSE])
+verb_mid  <- run_cat_verbose(model_2pl, aptitude_items[mid_id,  , drop = FALSE])
+verb_high <- run_cat_verbose(model_2pl, aptitude_items[high_id, , drop = FALSE])
+
+# =============================================================================
+# GENERATE ALL PLOTS
+# =============================================================================
+
+all_item_names <- colnames(aptitude_items)
+
+for (student in list(
+  list(res = verb_low,  label = "Low Ability"),
+  list(res = verb_mid,  label = "Mid Ability"),
+  list(res = verb_high, label = "High Ability")
+)) {
+  
+  # ── summary ────────────────────────────────────────────────────────────────
+  cat("\n==========", student$label, "==========\n")
+  cat("Items administered: ", nrow(student$res$result), "\n")
+  cat("Final θ̂:           ", round(tail(student$res$result$theta, 1), 3), "\n")
+  cat("Final SE:           ", round(tail(student$res$result$SE,    1), 3), "\n")
+  print(student$res$result)
+  
+  # ── θ trajectory ────────────────────────────────────────────────────────────
+  print(plot_theta_trajectory(student$res, student$label))
+  
+  # ── per step: selection rationale + ICC + IIC ───────────────────────────────
+  for (s in 1:nrow(student$res$result)) {
+    print(plot_item_selection(student$res, s, student$label))
+    plot_item_curves(model_2pl, student$res, s, student$label, all_item_names)
+  }
+}
 ```
