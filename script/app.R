@@ -201,6 +201,17 @@ student_list <- list(
   "High Ability" = list(cat = verb_high$result, traits = trait_df[high_id, ])
 )
 
+# item params 
+item_params_df <- do.call(rbind, lapply(names(item_bank), function(id) {
+  data.frame(
+    item    = id,
+    a       = item_bank[[id]]$a,
+    b       = item_bank[[id]]$b,
+    pathway = item_bank[[id]]$pathway,
+    stringsAsFactors = FALSE
+  )
+}))
+
 # =============================================================================
 # UI
 # =============================================================================
@@ -388,7 +399,8 @@ server <- function(input, output, session) {
         trait_scores  = avg_ocean,
         mapping_table = mapping_table,
         apt_weight    = 0.70,
-        pers_weight   = 0.30
+        pers_weight   = 0.30,
+        item_params   = item_params_df
       )
       
       tagList(
@@ -546,7 +558,8 @@ server <- function(input, output, session) {
                                  SE       = cs$se_hist),
       trait_scores  = avg_ocean,
       mapping_table = mapping_table,
-      apt_weight    = 0.70, pers_weight = 0.30
+      apt_weight    = 0.70, pers_weight = 0.30,
+      item_params   = item_params_df
     )
     df          <- data.frame(pathway = names(rec$scores),
                               score   = as.numeric(rec$scores))
@@ -592,7 +605,8 @@ server <- function(input, output, session) {
                            trait_scores  = s$traits,
                            mapping_table = mapping_table,
                            apt_weight    = apt_w,
-                           pers_weight   = round(1 - apt_w, 2))
+                           pers_weight   = round(1 - apt_w, 2),
+                           item_params   = item_params_df)
   })
   
   cat_res <- reactive({ student_list[[input$student]]$cat })
